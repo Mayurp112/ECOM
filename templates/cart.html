@@ -1,0 +1,64 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block body %}
+<style>
+    .table{
+        box-shadow: 10px;
+    }
+</style>
+
+
+
+<br><br><br><br>
+
+<div class="container">
+    <div class="panel panel-success">
+        <div class="panel-heading">
+            <h2 style="text-align:center;" class="panel-title mb-4"> MY CART </h2>
+        </div>
+        <table class="table table-hover table-bordered" id="dev-table">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Image</th>
+                    <th>Price</th>
+                    <th>Description</th>
+                    <th>Action</th>
+
+                </tr>
+            </thead>
+            {% for p in products %}
+            {% if p %}
+
+            <tr>
+                <td> {{p.name}}</td>
+                <td> <img src="{% static p.product_image.url %}" alt="Profile Pic" height="50px" width="50px" /></td>
+                <td class="bi bi-currency-rupee"> {{p.price}}</td>
+                <td>{{p.description}}</td>
+
+                <td>
+                    <a class="btn btn-danger" type="submit" href="{% url 'remove-from-cart' p.id  %}"> Cancle Order</a>
+                </td>
+
+            </tr>
+            {%else%}
+            <br><br><br>
+            <h1>no products</h1>
+            {% endif %}
+            {% endfor %}
+        </table>
+    </div>
+</div>
+<br><br><br>
+<div style="text-align: center;">
+    <button class="btn btn-danger btn-lg">Total <span class="bi bi-currency-rupee"></span>{{total}}</button>
+    <a href="/customer-address"><button class="btn btn-success btn-lg"><span>Purchase </span></button></a>
+</div>
+
+
+<br><br><br><br><br>
+
+{% endblock body %}
+
+
+

@@ -1,0 +1,51 @@
+{% extends 'admin_base.html' %}
+{% load static %}
+{% block body %}
+
+
+
+
+
+<div class="container border-0">
+    <div class="panel panel-danger">
+        <div class="panel-heading">
+            <h6 class="panel-title display-3">Total Products</h6>
+        </div>
+        <table class="table table-hover table-bordered mt-5" id="dev-table">
+            <thead>
+                <tr style="font-size: x-large;">
+                    <th>Name</th>
+                    <th>Image</th>
+                    <th>Price</th>
+                    <th>Description</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            {% for p in products %}
+            {% if p %}
+
+            <tr style="font-size: large;">
+                <td> {{p.name}}</td>
+                <td> <img src="{% static p.product_image.url %}" alt="Profile Pic" height="40px" width="40px" /></td>
+                <td>{{p.price}}</td>
+                <td>{{p.description}}</td>
+                <td><a class="btn btn-primary btn-xs" href="{% url 'update-product' p.id  %}"> Update Product</a>
+                    <a class="btn btn-danger btn-xs" href="{% url 'delete-product' p.id  %}"> Remove Product</a>
+                </td>
+
+            </tr>
+            {%else%}
+            <br><br><br>
+            <h1>No Products!!</h1>
+            {% endif %}
+            {% endfor %}
+        </table>
+    </div>
+    <a href="/admin-add-product"><b>
+        <i class="btn btn-primary btn-xs"> Add New Product </i>
+    </b>
+    </a>
+    
+</div>
+
+{% endblock body %}

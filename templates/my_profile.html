@@ -1,0 +1,37 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block body %}
+
+
+
+<br><br><br>
+
+<div class="row ">
+    <div class="col-3 "></div>
+    <div class="col-3 ">
+        <img src="{% static customer.profile_pic.url %}" alt="profile pic" class="shadow-lg"
+            style="width:250px ; height: 250px; border-radius: 90px; justify-content: right;">
+    </div>
+
+
+    <div class="col-3 fs-1 " style="font-family: cursive;">
+        <p><b>Username</b>: {{request.user}}</p>
+        <p><b>Address </b>: {{customer.address}}</p>
+
+        <p><b>Contact </b>: {{customer.mobile}}</p>
+    </div>
+
+
+    <div class="col-3"></div>
+
+</div>
+<br>
+<div style="text-align: center;">
+    <a href="/edit-profile"><button class="btn btn-danger btn-lg" style="border-radius: 15px;"><span>Edit Profile </span></button></a>
+    <a href="/my-order"><button class="btn btn-primary btn-lg" style="border-radius: 15px;"><span> Tract My Orders </span></button></a>
+</div>
+<br><br><br><br><br><br>
+
+
+
+{% endblock body %}

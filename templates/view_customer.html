@@ -1,0 +1,42 @@
+{% extends 'admin_base.html' %}
+{% load static %}
+{% block css %}
+
+{% endblock css %}
+{% block body %}
+
+
+<div class="container-flex " >
+    <div class="panel panel-danger">
+        <div class="panel-heading">
+            <h3 class="panel-title display-4 col-sm-9"> <b>Total Customers </b></h3>
+        </div>
+        <div class="col-sm-9 mt-5 my-5 mx-auto sec-col border-0" style="border-radius: 20px;">
+            <table class="table bg-transparent my-4">
+                
+                <tr style="font-size: x-large; background-color: aliceblue;">
+                    <th scope="col">Name</th>
+                    <th scope="col">Contact</th>
+                    <th scope="col">Address</th>
+                    <th scope="col">Actions</th>
+                </tr>
+            
+            {% for c in customers %}
+            <tr style="font-size: large; margin-top: 20px;">
+                <td> {{c.get_name}}</td>
+                <td>{{c.mobile}}</td>
+                <td>{{c.address}}</td>
+                <td><a class="btn btn-primary btn-xs" href="{% url 'update-customer' c.id  %}"><span
+                            class="glyphicon glyphicon-edit"> UPdate Profile</span></a>
+                    <a class="btn btn-danger btn-xs" href="{% url 'delete-customer' c.id  %}"> Remove Profile <span
+                            class="glyphicon glyphicon-trash"></span></a>
+                </td>
+
+            </tr>
+            {% endfor %}
+        </table>
+        </div>
+    </div>
+</div>
+
+{% endblock body %}

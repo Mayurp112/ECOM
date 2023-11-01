@@ -1,0 +1,72 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block body %}
+
+
+<center><i> NOTE : THIS PAYMENT JUST FOR DEMO</i></center>
+<br><br>
+<div class="container" style="text-align:center; padding-left:300px;">
+    <div class="row">
+        <div class="col-xs-12 col-md-4" style="height:500px; width:600px;">
+            <div class="panel panel-default">
+                <div class="panel-heading">
+                    <h3 class="panel-title display-5"><b>
+                        Payment Details</b>
+                    </h3>
+                </div>
+                <br><br><br>
+                <div class="panel-body mt-3">
+                    <form role="form" method="post">
+                    <div class="form-group mb-3">
+                        <label for="cardNumber">
+                            <b>
+                            CARD NUMBER</b></label>
+                        <div class="input-group mt-2">
+                            <input type="text" class="form-control" id="cardNumber" placeholder="xxxx xxxx xxxx xxxx"
+                                required autofocus />
+                            <span class="input-group-addon"><span class="glyphicon glyphicon-lock"></span></span>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-xs-4 col-md-4 pull-left">
+                            <div class="form-group">
+                                <label for="cvCode">
+                                    <b>
+                                    MONTH</b></label>
+                                
+                                    <input type="text" class="form-control mt-2" id="expityMonth" placeholder="MM - 02" required />
+                               
+                            </div>
+                        </div>
+
+                        <div class="col-xs-4 col-md-4">
+                            <div class="form-group">
+                                <label for="expityMonth"><b>
+                                    EXPIRY DATE</b></label>
+                               
+                                
+                               
+                                    <input type="text" class="form-control mt-2" id="expityYear" placeholder="YY - 22" required /></div>
+                            
+                        </div>
+                        <div class="col-xs-4 col-md-4 pull-right">
+                            <div class="form-group">
+                                <label for="cvCode"><b>
+                                    PIN-CODE</b></label>
+                                <input type="password" class="form-control mt-2" id="cvCode" placeholder="PIN - xxx" required />
+                            </div>
+                        </div>
+                    </div>
+                    </form>
+                </div>
+            </div>
+            
+            <br/>
+            <a href="/payment-success" class="btn btn-success btn-lg btn-block" role="button">Pay</a>
+        </div>
+    </div>
+</div>
+
+
+{% endblock body %}
