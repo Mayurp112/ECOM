@@ -1,12 +1,18 @@
-from django.shortcuts import render,redirect,reverse
+from tokenize import group
+from django.shortcuts import get_object_or_404, render,redirect
 from . import forms,models
 from django.http import HttpResponseRedirect,HttpResponse
-from django.core.mail import send_mail
-from django.contrib.auth.models import Group
 from django.contrib.auth.decorators import login_required,user_passes_test
 from django.contrib import messages
-from django.conf import settings
-from .models import Product
+from .models import Customer, Orders, Product
+from django.contrib.auth import authenticate
+from django.views import View
+from django.contrib.auth.models import User
+from .forms import CustomerUserForm,CustomerForm
+from django.contrib.auth.models import Group
+
+from django.contrib.auth import authenticate,login,logout
+
 
 
 # Create your views here.
@@ -22,28 +28,58 @@ def adminclick_view(request):
         return HttpResponseRedirect('afterlogin')
     return HttpResponseRedirect('adminlogin')
 
-# Customer Login
-def customer_signup_view(request):
-    userForm=forms.CustomerUserForm()
-    customerForm=forms.CustomerForm()
-    mydict={'userForm':userForm,'customerForm':customerForm}
-    if request.method=='POST':
-        userForm=forms.CustomerUserForm(request.POST)
-        customerForm=forms.CustomerForm(request.POST,request.FILES)
+
+
+# Customer Signup View
+class customer_signup_view(View):
+    
+    def get(self, request):
+        userForm = CustomerUserForm()
+        customerForm = CustomerForm()
+
+        mydict = {'userForm': userForm, 'customerForm': customerForm}
+        return render(request, 'customersignup.html', context=mydict)
+
+    def post(self, request):
+        userForm = CustomerUserForm(request.POST)
+        customerForm = CustomerForm(request.POST, request.FILES)
+
         if userForm.is_valid() and customerForm.is_valid():
-            user=userForm.save()
+            user = userForm.save()
             user.set_password(user.password)
             user.save()
-            customer=customerForm.save(commit=False)
-            customer.user=user
+
+            customer = customerForm.save(commit=False)
+            customer.user = user
             customer.save()
-            """
-            my_customer_group = Group.objects.get_or_create(name='CUSTOMER')
-            my_customer_group[0].user_set.add(user)
-            """
+
+            my_customer_group, created = Group.objects.get_or_create(name='CUSTOMER')
+            my_customer_group.user_set.add(user)
             
-        return HttpResponseRedirect('customerlogin')
-    return render(request,'customersignup.html',context=mydict)
+            return HttpResponseRedirect('customerlogin')
+
+        mydict = {'userForm': userForm, 'customerForm': customerForm}
+        return render(request, 'customersignup.html', context=mydict)
+
+
+
+class customer_login(View):
+    def get(self,request):
+        return render(request,'customerlogin.html')
+
+    def post(self,request):
+        if request.method=='POST':
+            uname=request.POST.get('username')
+            upass=request.POST.get('password')
+            user=authenticate(request,username=uname,password=upass)
+            print(user)
+            print(uname,upass)
+            if user is not None:
+                login(request,user)
+                return redirect(to=' ')
+            else:
+                messages.warning(request,f' Something Went Wrong While Login ')
+                return redirect(to='customerlogin')
 
 
 
@@ -54,6 +90,7 @@ def customer_signup_view(request):
 #_____ for checking user is customer
 def is_customer(user):
     return user.groups.filter(name='CUSTOMER').exists()
+
 
 
 #_____ AFTER ENTERING CREDENTIALS WE CHECK WHETHER USERNAME AND PASSWORD IS OF ADMIN,CUSTOMER
@@ -68,10 +105,9 @@ def afterlogin_view(request):
 
 
 
-
 @login_required(login_url='adminlogin')
 def admin_dashboard_view(request):
-    # for cards on dashboard
+    
     customercount=models.Customer.objects.all().count()
     productcount=models.Product.objects.all().count()
     ordercount=models.Orders.objects.all().count()
@@ -87,235 +123,240 @@ def admin_dashboard_view(request):
 # admin view customer table
 
 @login_required(login_url='customerlogin')
-@user_passes_test(is_customer)
 def customer_home_view(request):
     products=Product.objects.all()
     
     return render(request,request,'home.html',{'products':products})
 
-   
 
-def add_to_cart_view(request,pk):
-    products=models.Product.objects.all()
 
-    #for cart counter, fetching products ids added by customer from cookies
-    if 'product_ids' in request.COOKIES:
-        product_ids = request.COOKIES['product_ids']
-        counter=product_ids.split('|')
-        product_count_in_cart=len(set(counter))
-    else:
-        product_count_in_cart=1
+class add_to_cart_view(View):
+    def get(self, request, pk):
+        products = models.Product.objects.all()
 
-    response = render(request, 'home.html',{'products':products,'product_count_in_cart':product_count_in_cart})
-
-    #adding product id to cookies
-    if 'product_ids' in request.COOKIES:
-        product_ids = request.COOKIES['product_ids']
-        if product_ids=="":
-            product_ids=str(pk)
+        if 'product_ids' in request.COOKIES:
+            product_ids = request.COOKIES['product_ids']
+            counter = product_ids.split('|')
+            product_count_in_cart = len(set(counter))
         else:
-            product_ids=product_ids+"|"+str(pk)
-        response.set_cookie('product_ids', product_ids)
-    else:
-        response.set_cookie('product_ids', pk)
+            product_count_in_cart = 1
 
-    product=models.Product.objects.get(id=pk)
-    messages.info(request, product.name + ' added to cart successfully')
+        response = render(request, 'home.html', {'products': products, 'product_count_in_cart': product_count_in_cart})
 
-    return response
-
-def remove_from_cart_view(request,pk):
-    #for counter in cart
-    if 'product_ids' in request.COOKIES:
-        product_ids = request.COOKIES['product_ids']
-        counter=product_ids.split('|')
-        product_count_in_cart=len(set(counter))
-    else:
-        product_count_in_cart=0
-
-    # removing product id from cookie
-    total=0
-    if 'product_ids' in request.COOKIES:
-        product_ids = request.COOKIES['product_ids']
-        product_id_in_cart=product_ids.split('|')
-        product_id_in_cart=list(set(product_id_in_cart))
-        product_id_in_cart.remove(str(pk))
-        products=models.Product.objects.all().filter(id__in = product_id_in_cart)
-        #for total price shown in cart after removing product
-        for p in products:
-            total=total+p.price
-
-        #  for update coookie value after removing product id in cart
-        value=""
-        for i in range(len(product_id_in_cart)):
-            if i==0:
-                value=value+product_id_in_cart[0]
+        if 'product_ids' in request.COOKIES:
+            product_ids = request.COOKIES['product_ids']
+            if product_ids == "":
+                product_ids = str(pk)
             else:
-                value=value+"|"+product_id_in_cart[i]
-        response = render(request, 'cart.html',{'products':products,'total':total,'product_count_in_cart':product_count_in_cart})
-        if value=="":
-            response.delete_cookie('product_ids')
-        response.set_cookie('product_ids',value)
+                product_ids = product_ids + "|" + str(pk)
+            response.set_cookie('product_ids', product_ids)
+        else:
+            response.set_cookie('product_ids', pk)
+
+        product = get_object_or_404(models.Product, pk=pk)
+        messages.info(request, f"{product.name} added to cart successfully")
+
         return response
+    
 
 
+class remove_from_cart_view(View):
+    def get(self, request, pk):
+        product_ids = request.COOKIES.get('product_ids', '')
+        counter = product_ids.split('|') if product_ids else []
+        product_count_in_cart = len(set(counter))
 
+        total = 0
+        if product_ids:
+            product_id_in_cart = product_ids.split('|')
+            product_id_in_cart = list(set(product_id_in_cart))
+            product_id_in_cart.remove(str(pk))
+            products = models.Product.objects.filter(id__in=product_id_in_cart)
 
-
-def cart_view(request):
-    #for cart counter
-    if 'product_ids' in request.COOKIES:
-        product_ids = request.COOKIES['product_ids']
-        counter=product_ids.split('|')
-        product_count_in_cart=len(set(counter))
-    else:
-        product_count_in_cart=0
-
-    # fetching product details from db whose id is present in cookie
-    products=None
-    total=0
-    if 'product_ids' in request.COOKIES:
-        product_ids = request.COOKIES['product_ids']
-        if product_ids != "":
-            product_id_in_cart=product_ids.split('|')
-            products=models.Product.objects.all().filter(id__in = product_id_in_cart)
-
-            #for total price shown in cart
             for p in products:
-                total=total+p.price
-    return render(request,'cart.html',{'products':products,'total':total,'product_count_in_cart':product_count_in_cart})
+                total += p.price
+
+            value = "|".join(product_id_in_cart)
+            response = render(request, 'cart.html', {
+                'products': products,
+                'total': total,
+                'product_count_in_cart': product_count_in_cart
+            })
+
+            if not value:
+                response.delete_cookie('product_ids')
+            response.set_cookie('product_ids', value)
+            return response
+
+    def post(self, request, pk):
+        pass
+
+
+class cart_view(View):
+    def get(self, request):
+        if 'product_ids' in request.COOKIES:
+            product_ids = request.COOKIES['product_ids']
+            counter = product_ids.split('|')
+            product_count_in_cart = len(set(counter))
+        else:
+            product_count_in_cart = 0
+
+        products = None
+        total = 0
+
+        if 'product_ids' in request.COOKIES:
+            product_ids = request.COOKIES['product_ids']
+            if product_ids != "":
+                product_id_in_cart = product_ids.split('|')
+                products = Product.objects.filter(id__in=product_id_in_cart)
+
+                for p in products:
+                    total += p.price
+
+        return render(request, 'cart.html', {'products': products, 'total': total, 'product_count_in_cart': product_count_in_cart})
+
+    def post(self):
+        pass
 
 
 
 @login_required(login_url='customerlogin')
-@user_passes_test(is_customer)
 def my_profile_view(request):
     customer=models.Customer.objects.get(user_id=request.user.id)
     return render(request,'my_profile.html',{'customer':customer})
 
 
 
-@login_required(login_url='customerlogin')
-@user_passes_test(is_customer)
-def edit_profile_view(request):
-    customer=models.Customer.objects.get(user_id=request.user.id)
-    user=models.User.objects.get(id=customer.user_id)
-    userForm=forms.CustomerUserForm(instance=user)
-    customerForm=forms.CustomerForm(request.FILES,instance=customer)
-    mydict={'userForm':userForm,'customerForm':customerForm}
-    if request.method=='POST':
-        userForm=forms.CustomerUserForm(request.POST,instance=user)
-        customerForm=forms.CustomerForm(request.POST,instance=customer)
+
+class edit_profile_view(View):
+    def get(self, request):
+        customer = models.Customer.objects.get(user_id=request.user.id)
+        user = models.User.objects.get(id=customer.user_id)
+        userForm = forms.CustomerUserForm(instance=user)
+        customerForm = forms.CustomerForm(instance=customer)
+        mydict = {'userForm': userForm, 'customerForm': customerForm}
+        return render(request, 'edit_profile.html', context=mydict)
+
+    def post(self, request):
+        customer = models.Customer.objects.get(user_id=request.user.id)
+        user = models.User.objects.get(id=customer.user_id)
+        userForm = forms.CustomerUserForm(request.POST, instance=user)
+        customerForm = forms.CustomerForm(request.POST, request.FILES, instance=customer)
+        mydict = {'userForm': userForm, 'customerForm': customerForm}
+
         if userForm.is_valid() and customerForm.is_valid():
-            user=userForm.save()
+            user = userForm.save(commit=False)
             user.set_password(user.password)
             user.save()
             customerForm.save()
             return HttpResponseRedirect('my-profile')
-    return render(request,'edit_profile.html',context=mydict)
-
-
-@login_required(login_url='customerlogin')
-def customer_address_view(request):
-
+        return render(request, 'edit_profile.html', context=mydict)
     
-    product_in_cart=False
-    if 'product_ids' in request.COOKIES:
-        product_ids = request.COOKIES['product_ids']
-        if product_ids != "":
-            product_in_cart=True
-    #for counter in cart
-    if 'product_ids' in request.COOKIES:
-        product_ids = request.COOKIES['product_ids']
-        counter=product_ids.split('|')
-        product_count_in_cart=len(set(counter))
-    else:
-        product_count_in_cart=0
+    
 
-    addressForm = forms.AddressForm()
-    if request.method == 'POST':
+class customer_address_view(View):
+    def get(self, request):
+        product_in_cart = False
+        if 'product_ids' in request.COOKIES:
+            product_ids = request.COOKIES['product_ids']
+            if product_ids != "":
+                product_in_cart = True
+
+        if 'product_ids' in request.COOKIES:
+            product_ids = request.COOKIES['product_ids']
+            counter = product_ids.split('|')
+            product_count_in_cart = len(set(counter))
+        else:
+            product_count_in_cart = 0
+
+        addressForm = forms.AddressForm()
+        return render(request, 'customer_address.html', {
+            'addressForm': addressForm,
+            'product_in_cart': product_in_cart,
+            'product_count_in_cart': product_count_in_cart
+        })
+
+    def post(self, request):
         addressForm = forms.AddressForm(request.POST)
         if addressForm.is_valid():
-            # here we are taking address, email, mobile at time of order placement
-            # we are not taking it from customer account table because
-            # these thing can be changes
             email = addressForm.cleaned_data['Email']
-            mobile=addressForm.cleaned_data['Mobile']
+            mobile = addressForm.cleaned_data['Mobile']
             address = addressForm.cleaned_data['Address']
-            #for showing total price on payment page.....accessing id from cookies then fetching  price of product from db
-            total=0
+
+            total = 0
             if 'product_ids' in request.COOKIES:
                 product_ids = request.COOKIES['product_ids']
                 if product_ids != "":
-                    product_id_in_cart=product_ids.split('|')
-                    products=models.Product.objects.all().filter(id__in = product_id_in_cart)
+                    product_id_in_cart = product_ids.split('|')
+                    products = models.Product.objects.all().filter(id__in=product_id_in_cart)
                     for p in products:
-                        total=total+p.price
+                        total += p.price
 
-            response = render(request, 'payment.html',{'total':total})
-            response.set_cookie('email',email)
-            response.set_cookie('mobile',mobile)
-            response.set_cookie('address',address)
+            response = render(request, 'payment.html', {'total': total})
+            response.set_cookie('email', email)
+            response.set_cookie('mobile', mobile)
+            response.set_cookie('address', address)
             return response
-    return render(request,'customer_address.html',{'addressForm':addressForm,'product_in_cart':product_in_cart,'product_count_in_cart':product_count_in_cart})
-    
-    #return render(request,'customer_address.html')
+
+        # If form is not valid, render the form again with errors
+        return render(request, 'customer_address.html', {'addressForm': addressForm})
   
-@login_required(login_url='customerlogin')
-def payment_success_view(request):
-    # Here we will place order | after successful payment
-    # we will fetch customer  mobile, address, Email
-    # we will fetch product id from cookies then respective details from db
-    # then we will create order objects and store in db
-    # after that we will delete cookies because after order placed...cart should be empty
-    customer=models.Customer.objects.get(user_id=request.user.id)
-    products=None
-    email=None
-    mobile=None
-    address=None
-    if 'product_ids' in request.COOKIES:
-        product_ids = request.COOKIES['product_ids']
-        if product_ids != "":
-            product_id_in_cart=product_ids.split('|')
-            products=models.Product.objects.all().filter(id__in = product_id_in_cart)
-            # Here we get products list that will be ordered by one customer at a time
+class payment_success_view(View):
+    def get(self, request):
+        customer = Customer.objects.get(user_id=request.user.id)
+        products = None
+        email = None
+        mobile = None
+        address = None
 
-    # these things can be change so accessing at the time of order...
-    if 'email' in request.COOKIES:
-        email=request.COOKIES['email']
-    if 'mobile' in request.COOKIES:
-        mobile=request.COOKIES['mobile']
-    if 'address' in request.COOKIES:
-        address=request.COOKIES['address']
+        if 'product_ids' in request.COOKIES:
+            product_ids = request.COOKIES['product_ids']
+            if product_ids != "":
+                product_id_in_cart = product_ids.split('|')
+                products = Product.objects.filter(id__in=product_id_in_cart)
 
-    # here we are placing number of orders as much there is a products
-    # suppose if we have 5 items in cart and we place order....so 5 rows will be created in orders table
-    # there will be lot of redundant data in orders table...but its become more complicated if we normalize it
-    for product in products:
-        models.Orders.objects.get_or_create(customer=customer,product=product,status='Pending',email=email,mobile=mobile,address=address)
+        if 'email' in request.COOKIES:
+            email = request.COOKIES['email']
+        if 'mobile' in request.COOKIES:
+            mobile = request.COOKIES['mobile']
+        if 'address' in request.COOKIES:
+            address = request.COOKIES['address']
 
-    # after order placed cookies should be deleted
-    response = render(request,'payment_success.html')
-    response.delete_cookie('product_ids')
-    response.delete_cookie('email')
-    response.delete_cookie('mobile')
-    response.delete_cookie('address')
-    return response
+        for product in products:
+            Orders.objects.get_or_create(
+                customer=customer,
+                product=product,
+                status='Pending',
+                email=email,
+                mobile=mobile,
+                address=address
+            )
+
+        response = render(request, 'payment_success.html')
+        response.delete_cookie('product_ids')
+        response.delete_cookie('email')
+        response.delete_cookie('mobile')
+        response.delete_cookie('address')
+        return response
 
 
 
-@login_required(login_url='customerlogin')
-@user_passes_test(is_customer)
-def my_order_view(request):
-    
-    customer=models.Customer.objects.get(user_id=request.user.id)
-    orders=models.Orders.objects.all().filter(customer_id = customer)
-    ordered_products=[]
-    for order in orders:
-        ordered_product=models.Product.objects.all().filter(id=order.product.id)
-        ordered_products.append(ordered_product)
 
-    return render(request,'my_order.html',{'data':zip(ordered_products,orders)})
+class my_order_view(View):
+
+    def get(self):
+        customer = Customer.objects.get(user_id=self.request.user.id)
+        orders = Orders.objects.filter(customer_id=customer)
+        ordered_products = []
+
+        for order in orders:
+            product = Product.objects.get(id=order.product.id)
+            ordered_products.append(product)
+
+        return zip(ordered_products, orders)
+
+    def post(self):
+        pass
  
 
 
@@ -423,6 +464,11 @@ def update_order_view(request,pk):
             return redirect('admin-view-booking')
     return render(request,'update_order.html',{'orderForm':orderForm})
 
+
+
+def Logout_page(request):
+    logout(request)
+    return redirect('Login_page')
 
 
 
